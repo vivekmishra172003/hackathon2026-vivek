@@ -1,0 +1,7 @@
+{
+  "total_tickets": 20,
+  "resolved": 13,
+  "escalated": 7,
+  "avg_confidence": 0.86,
+  "min_tool_calls": 7
+}

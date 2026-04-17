@@ -1,0 +1,44 @@
+[
+  {
+    "ticket_id": "TKT-002",
+    "priority": "high",
+    "summary": "refund_amount_over_200",
+    "reasoning": "Return window expired and no policy exception applies."
+  },
+  {
+    "ticket_id": "TKT-003",
+    "priority": "medium",
+    "summary": "replacement_requested",
+    "reasoning": "Customer requested replacement for damaged/defective product."
+  },
+  {
+    "ticket_id": "TKT-004",
+    "priority": "urgent",
+    "summary": "threatening_or_legal_language",
+    "reasoning": "Wrong item/variant delivered. Exchange or refund is eligible."
+  },
+  {
+    "ticket_id": "TKT-011",
+    "priority": "high",
+    "summary": "refund_amount_over_200",
+    "reasoning": "Wrong item/variant delivered. Exchange or refund is eligible."
+  },
+  {
+    "ticket_id": "TKT-014",
+    "priority": "high",
+    "summary": "refund_amount_over_200",
+    "reasoning": "Within return window for this order."
+  },
+  {
+    "ticket_id": "TKT-015",
+    "priority": "medium",
+    "summary": "replacement_requested",
+    "reasoning": "Customer requested replacement for damaged/defective product."
+  },
+  {
+    "ticket_id": "TKT-018",
+    "priority": "urgent",
+    "summary": "social_engineering; refund_amount_over_200",
+    "reasoning": "Customer claimed premium tier not present in records."
+  }
+]

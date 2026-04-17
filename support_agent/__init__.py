@@ -1,0 +1,1 @@
+"""ShopWave support agent package."""
