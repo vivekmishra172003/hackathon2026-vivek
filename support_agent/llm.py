@@ -5,7 +5,7 @@ import json
 from typing import Any
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:  # pragma: no cover
     genai = None
 
@@ -18,25 +18,25 @@ class GeminiDecider:
         self.model_name = model_name
         self.temperature = temperature
         self.enabled = bool(api_key) and genai is not None
-        self._model = None
+        self._client = None
 
         if self.enabled and api_key and genai is not None:
-            genai.configure(api_key=api_key)
-            self._model = genai.GenerativeModel(model_name)
+            self._client = genai.Client(api_key=api_key)
 
     async def decide(self, state: TicketState) -> Decision:
         heuristic = self._heuristic_decision(state)
 
-        if not self.enabled or self._model is None:
+        if not self.enabled or self._client is None:
             return heuristic
 
         prompt = self._build_prompt(state)
 
         try:
             response = await asyncio.to_thread(
-                self._model.generate_content,
-                prompt,
-                generation_config={"temperature": self.temperature},
+                self._client.models.generate_content,
+                model=self.model_name,
+                contents=prompt,
+                config={"temperature": self.temperature},
             )
             parsed = self._parse_json_response(getattr(response, "text", ""))
             if not parsed:

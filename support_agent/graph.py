@@ -6,7 +6,7 @@ from support_agent.audit import apply_confidence_to_audit, record_tool_call
 from support_agent.data_store import DataStore
 from support_agent.llm import GeminiDecider
 from support_agent.models import TicketState
-from support_agent.tools import SupportTools, extract_order_id
+from support_agent.tools import SupportTools, ToolExecutionError, extract_order_id
 
 
 def build_support_graph(
@@ -14,6 +14,32 @@ def build_support_graph(
     decider: GeminiDecider,
     confidence_threshold: float = 0.65,
 ):
+    def append_error(state: TicketState, message: str) -> None:
+        if "errors" not in state:
+            state["errors"] = []
+        state["errors"].append(message)
+
+    def build_escalation_summary(state: TicketState) -> str:
+        ticket = state.get("ticket", {})
+        decision = state.get("decision", {})
+        eligibility = state.get("eligibility", {})
+        order = state.get("order") or {}
+        product = state.get("product") or {}
+        reasons = "; ".join(eligibility.get("reasons", []))
+        escalation_reasons = "; ".join(eligibility.get("escalation_reasons", []))
+
+        return (
+            f"ticket_id={ticket.get('ticket_id')}; "
+            f"customer_email={ticket.get('customer_email')}; "
+            f"order_id={order.get('order_id')}; "
+            f"product_id={product.get('product_id')}; "
+            f"recommended_action={eligibility.get('recommended_action')}; "
+            f"decision_action={decision.get('action')}; "
+            f"confidence={decision.get('confidence')}; "
+            f"policy_reasons={reasons}; "
+            f"escalation_reasons={escalation_reasons}"
+        )
+
     def parse_ticket_node(state: TicketState) -> TicketState:
         ticket = state.get("ticket", {})
         subject = ticket.get("subject", "")
@@ -35,38 +61,72 @@ def build_support_graph(
     def lookup_user_node(state: TicketState) -> TicketState:
         tools = SupportTools(store, state)
         email = state.get("ticket", {}).get("customer_email", "")
-        state["customer"] = tools.lookup_user(email)
+        try:
+            state["customer"] = tools.get_customer(email)
+        except ToolExecutionError as exc:
+            append_error(state, f"GET_CUSTOMER failed: {exc}")
+            state["customer"] = None
         return state
 
     def lookup_order_node(state: TicketState) -> TicketState:
         tools = SupportTools(store, state)
         customer = state.get("customer")
         customer_id = customer.get("customer_id") if customer else None
-        state["order"] = tools.lookup_order(state.get("order_id"), customer_id)
+        try:
+            state["order"] = tools.lookup_order(state.get("order_id"), customer_id)
+        except ToolExecutionError as exc:
+            append_error(state, f"GET_ORDER failed: {exc}")
+            state["order"] = None
         return state
 
     def lookup_product_node(state: TicketState) -> TicketState:
         tools = SupportTools(store, state)
         order = state.get("order")
         product_id = order.get("product_id") if order else None
-        state["product"] = tools.lookup_product(product_id)
+        try:
+            state["product"] = tools.get_product(product_id)
+        except ToolExecutionError as exc:
+            append_error(state, f"GET_PRODUCT failed: {exc}")
+            state["product"] = None
         return state
 
     def knowledge_node(state: TicketState) -> TicketState:
         tools = SupportTools(store, state)
         ticket = state.get("ticket", {})
         query = f"{ticket.get('subject', '')} {ticket.get('body', '')}"
-        state["knowledge_snippets"] = tools.search_knowledge(query)
+        try:
+            state["knowledge_snippets"] = tools.search_knowledge_base(query)
+        except ToolExecutionError as exc:
+            append_error(state, f"SEARCH_KNOWLEDGE_BASE failed: {exc}")
+            state["knowledge_snippets"] = []
         return state
 
     def eligibility_node(state: TicketState) -> TicketState:
         tools = SupportTools(store, state)
-        state["eligibility"] = tools.check_refund_eligibility(
-            state.get("ticket", {}),
-            state.get("customer"),
-            state.get("order"),
-            state.get("product"),
-        )
+        try:
+            state["eligibility"] = tools.check_refund_eligibility(
+                state.get("order_id"),
+                ticket=state.get("ticket", {}),
+                customer=state.get("customer"),
+                order=state.get("order"),
+                product=state.get("product"),
+            )
+        except ToolExecutionError as exc:
+            append_error(state, f"CHECK_REFUND_ELIGIBILITY failed: {exc}")
+            state["eligibility"] = {
+                "eligible": False,
+                "recommended_action": "escalate_human",
+                "reasons": ["Eligibility tool failed after retries."],
+                "escalation_reasons": ["eligibility_tool_failure"],
+                "confidence_hint": 0.4,
+            }
+            record_tool_call(
+                state,
+                "CHECK_REFUND_ELIGIBILITY_FALLBACK",
+                {"ticket_id": state.get("ticket", {}).get("ticket_id")},
+                state["eligibility"],
+                confidence=0.4,
+            )
         return state
 
     async def decide_node(state: TicketState) -> TicketState:
@@ -86,43 +146,134 @@ def build_support_graph(
         return state
 
     def resolve_node(state: TicketState) -> TicketState:
+        tools = SupportTools(store, state)
         ticket = state.get("ticket", {})
         decision = state.get("decision", {})
+        order = state.get("order") or {}
 
-        state["escalated"] = False
+        ticket_id = ticket.get("ticket_id")
+        action = decision.get("action")
+        confidence = decision.get("confidence", 0.0)
+        priority = decision.get("priority", "medium")
+        message = decision.get("customer_message", "")
+
+        action_events: dict[str, object] = {}
+        dead_lettered = False
+        escalated = False
+        escalation_summary = ""
+
+        if action == "approve_refund":
+            order_id = order.get("order_id") or state.get("order_id")
+            amount = float(order.get("amount") or 0.0)
+            try:
+                if order_id:
+                    action_events["refund"] = tools.issue_refund(str(order_id), amount)
+                else:
+                    raise ToolExecutionError("Missing order_id for refund")
+            except ToolExecutionError as exc:
+                append_error(state, f"ISSUE_REFUND failed: {exc}")
+                dead_lettered = True
+                escalated = True
+                action = "escalate_human"
+                priority = "high"
+                escalation_summary = (
+                    f"Refund execution failed after retries for ticket {ticket_id}: {exc}"
+                )
+                try:
+                    action_events["escalation"] = tools.escalate(
+                        str(ticket_id),
+                        escalation_summary,
+                        str(priority),
+                    )
+                except ToolExecutionError as escalate_exc:
+                    append_error(state, f"ESCALATE fallback failed: {escalate_exc}")
+
+        try:
+            action_events["reply"] = tools.send_reply(str(ticket_id), str(message))
+        except ToolExecutionError as exc:
+            append_error(state, f"SEND_REPLY failed: {exc}")
+            dead_lettered = True
+            if not escalated:
+                escalated = True
+                action = "escalate_human"
+                priority = "high"
+                escalation_summary = f"Customer reply dispatch failed for ticket {ticket_id}: {exc}"
+                try:
+                    action_events["escalation"] = tools.escalate(
+                        str(ticket_id),
+                        escalation_summary,
+                        str(priority),
+                    )
+                except ToolExecutionError as escalate_exc:
+                    append_error(state, f"ESCALATE fallback failed: {escalate_exc}")
+
+        state["escalated"] = escalated
+        state["dead_lettered"] = dead_lettered
+
+        if escalated:
+            status = "escalated"
+        else:
+            status = "resolved"
+
         state["final_response"] = {
             "ticket_id": ticket.get("ticket_id"),
-            "status": "resolved",
-            "action": decision.get("action"),
-            "priority": decision.get("priority"),
-            "confidence": decision.get("confidence", 0.0),
-            "message": decision.get("customer_message", ""),
+            "status": status,
+            "action": action,
+            "priority": priority,
+            "confidence": confidence,
+            "message": message,
             "reasoning": decision.get("reasoning", ""),
+            "escalation_summary": escalation_summary,
+            "action_events": action_events,
         }
         return state
 
     def escalate_node(state: TicketState) -> TicketState:
+        tools = SupportTools(store, state)
         ticket = state.get("ticket", {})
         decision = state.get("decision", {})
-        eligibility = state.get("eligibility", {})
+        summary = decision.get("escalation_summary") or build_escalation_summary(state)
+        priority = decision.get("priority", "high")
+
+        action_events: dict[str, object] = {}
+        dead_lettered = False
+
+        try:
+            action_events["escalation"] = tools.escalate(
+                str(ticket.get("ticket_id")),
+                str(summary),
+                str(priority),
+            )
+        except ToolExecutionError as exc:
+            append_error(state, f"ESCALATE failed: {exc}")
+            dead_lettered = True
+
+        customer_message = decision.get(
+            "customer_message",
+            "Your request is being reviewed by a specialist team.",
+        )
+        try:
+            action_events["reply"] = tools.send_reply(
+                str(ticket.get("ticket_id")),
+                str(customer_message),
+            )
+        except ToolExecutionError as exc:
+            append_error(state, f"SEND_REPLY failed on escalation path: {exc}")
+            dead_lettered = True
 
         state["escalated"] = True
+        state["dead_lettered"] = dead_lettered
         state["final_response"] = {
             "ticket_id": ticket.get("ticket_id"),
             "status": "escalated",
             "action": "escalate_human",
-            "priority": decision.get("priority", "high"),
+            "priority": priority,
             "confidence": decision.get("confidence", 0.0),
-            "message": decision.get(
-                "customer_message",
-                "Your request is being reviewed by a specialist team.",
-            ),
+            "message": customer_message,
             "reasoning": decision.get("reasoning", ""),
-            "escalation_summary": decision.get(
-                "escalation_summary",
-                "; ".join(eligibility.get("escalation_reasons", [])),
-            ),
+            "escalation_summary": summary,
             "recommended_path": "human_specialist_review",
+            "action_events": action_events,
         }
         return state
 
@@ -136,6 +287,18 @@ def build_support_graph(
                 "MIN_TOOL_CALL_GUARD",
                 {"previous_count": state.get("tool_call_count", 0)},
                 {"status": "Tool-count guard triggered"},
+                confidence=decision_confidence,
+            )
+
+        if state.get("dead_lettered", False):
+            record_tool_call(
+                state,
+                "DEAD_LETTER_MARKED",
+                {"ticket_id": state.get("ticket", {}).get("ticket_id")},
+                {
+                    "reason": "One or more write actions failed after retries",
+                    "errors": state.get("errors", []),
+                },
                 confidence=decision_confidence,
             )
 

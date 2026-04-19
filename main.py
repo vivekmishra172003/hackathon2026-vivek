@@ -55,6 +55,10 @@ def initial_state(ticket: dict[str, Any]) -> TicketState:
         "tool_call_count": 0,
         "audit": [],
         "errors": [],
+        "dead_lettered": False,
+        "retry_counters": {},
+        "reply_outbox": [],
+        "escalation_queue": [],
     }
 
 
@@ -67,6 +71,7 @@ async def process_ticket(ticket: dict[str, Any], graph: Any, semaphore: asyncio.
             return result
         except Exception as exc:  # pragma: no cover
             state["errors"].append(str(exc))
+            state["dead_lettered"] = True
             state["decision"] = {
                 "action": "escalate_human",
                 "confidence": 0.0,
@@ -103,12 +108,21 @@ def write_json(path: Path, payload: Any) -> None:
         json.dump(payload, handle, indent=2, ensure_ascii=False)
 
 
-def build_exports(results: list[TicketState]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
+def build_exports(
+    results: list[TicketState],
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    dict[str, Any],
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+]:
     sorted_results = sorted(results, key=lambda item: item.get("ticket", {}).get("ticket_id", ""))
 
     resolutions: list[dict[str, Any]] = []
     audit_log: list[dict[str, Any]] = []
     escalations: list[dict[str, Any]] = []
+    dead_letter_queue: list[dict[str, Any]] = []
 
     for result in sorted_results:
         ticket = result.get("ticket", {})
@@ -123,6 +137,7 @@ def build_exports(results: list[TicketState]) -> tuple[list[dict[str, Any]], lis
             "confidence": final_response.get("confidence", decision.get("confidence", 0.0)),
             "priority": final_response.get("priority", decision.get("priority", "medium")),
             "escalated": result.get("escalated", False),
+            "dead_lettered": result.get("dead_lettered", False),
             "tool_call_count": result.get("tool_call_count", 0),
             "message": final_response.get("message", decision.get("customer_message", "")),
             "errors": result.get("errors", []),
@@ -149,10 +164,23 @@ def build_exports(results: list[TicketState]) -> tuple[list[dict[str, Any]], lis
                 }
             )
 
+        if result.get("dead_lettered", False):
+            dead_letter_queue.append(
+                {
+                    "ticket_id": ticket.get("ticket_id"),
+                    "status": final_response.get("status", "unknown"),
+                    "action": final_response.get("action", decision.get("action")),
+                    "priority": final_response.get("priority", decision.get("priority", "high")),
+                    "errors": result.get("errors", []),
+                    "last_decision": decision,
+                }
+            )
+
     summary = {
         "total_tickets": len(resolutions),
         "resolved": sum(1 for item in resolutions if item["status"] == "resolved"),
         "escalated": sum(1 for item in resolutions if item["status"] == "escalated"),
+        "dead_lettered": sum(1 for item in resolutions if item.get("dead_lettered", False)),
         "avg_confidence": round(
             sum(float(item.get("confidence", 0.0)) for item in resolutions) / max(len(resolutions), 1),
             4,
@@ -160,7 +188,7 @@ def build_exports(results: list[TicketState]) -> tuple[list[dict[str, Any]], lis
         "min_tool_calls": min((item.get("tool_call_count", 0) for item in resolutions), default=0),
     }
 
-    return resolutions, audit_log, summary, escalations
+    return resolutions, audit_log, summary, escalations, dead_letter_queue
 
 
 async def run(args: argparse.Namespace) -> None:
@@ -189,12 +217,13 @@ async def run(args: argparse.Namespace) -> None:
     if not out_dir.is_absolute():
         out_dir = root / out_dir
 
-    resolutions, audit_log, summary, escalations = build_exports(results)
+    resolutions, audit_log, summary, escalations, dead_letter_queue = build_exports(results)
 
     write_json(out_dir / "resolutions.json", resolutions)
     write_json(out_dir / "audit_log.json", audit_log)
     write_json(out_dir / "summary.json", summary)
     write_json(out_dir / "escalations.json", escalations)
+    write_json(out_dir / "dead_letter_queue.json", dead_letter_queue)
 
     print("Run completed.")
     print(json.dumps(summary, indent=2))

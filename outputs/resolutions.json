@@ -7,7 +7,8 @@
     "confidence": 0.9,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 9,
     "message": "Your request qualifies for a refund. I will process it now, and it should reflect in 5-7 business days.",
     "errors": []
   },
@@ -19,7 +20,8 @@
     "confidence": 0.82,
     "priority": "high",
     "escalated": true,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 9,
     "message": "I reviewed your request and this order is outside the return policy, so I cannot approve a refund right now.",
     "errors": []
   },
@@ -31,9 +33,12 @@
     "confidence": 0.88,
     "priority": "medium",
     "escalated": true,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 10,
     "message": "I am escalating this to a specialist team so they can handle this case accurately and quickly.",
-    "errors": []
+    "errors": [
+      "GET_ORDER attempt 1 failed: GET_ORDER timed out"
+    ]
   },
   {
     "ticket_id": "TKT-004",
@@ -43,7 +48,8 @@
     "confidence": 0.88,
     "priority": "urgent",
     "escalated": true,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 9,
     "message": "You are eligible for an exchange. I can arrange replacement with the correct item/variant.",
     "errors": []
   },
@@ -55,7 +61,8 @@
     "confidence": 0.84,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "Your return request is approved. I can help you start the return process immediately.",
     "errors": []
   },
@@ -67,7 +74,8 @@
     "confidence": 0.82,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "I reviewed your request and this order is outside the return policy, so I cannot approve a refund right now.",
     "errors": []
   },
@@ -79,7 +87,8 @@
     "confidence": 0.86,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "Your return request is approved. I can help you start the return process immediately.",
     "errors": []
   },
@@ -91,7 +100,8 @@
     "confidence": 0.9,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 9,
     "message": "Your request qualifies for a refund. I will process it now, and it should reflect in 5-7 business days.",
     "errors": []
   },
@@ -103,7 +113,8 @@
     "confidence": 0.9,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "I checked the order status and shared the latest update below.",
     "errors": []
   },
@@ -115,7 +126,8 @@
     "confidence": 0.86,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "I checked the order status and shared the latest update below.",
     "errors": []
   },
@@ -127,9 +139,12 @@
     "confidence": 0.88,
     "priority": "high",
     "escalated": true,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 10,
     "message": "You are eligible for an exchange. I can arrange replacement with the correct item/variant.",
-    "errors": []
+    "errors": [
+      "CHECK_REFUND_ELIGIBILITY attempt 1 failed: CHECK_REFUND_ELIGIBILITY missing fields: confidence_hint, eligible, escalation_reasons, reasons, recommended_action"
+    ]
   },
   {
     "ticket_id": "TKT-012",
@@ -139,7 +154,8 @@
     "confidence": 0.9,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "Your order is eligible for cancellation and I will process it right away.",
     "errors": []
   },
@@ -151,7 +167,8 @@
     "confidence": 0.9,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "I reviewed your request and this order is outside the return policy, so I cannot approve a refund right now.",
     "errors": []
   },
@@ -163,9 +180,12 @@
     "confidence": 0.86,
     "priority": "high",
     "escalated": true,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 10,
     "message": "Your return request is approved. I can help you start the return process immediately.",
-    "errors": []
+    "errors": [
+      "SEARCH_KNOWLEDGE_BASE attempt 1 failed: SEARCH_KNOWLEDGE_BASE returned non-list payload"
+    ]
   },
   {
     "ticket_id": "TKT-015",
@@ -175,9 +195,12 @@
     "confidence": 0.88,
     "priority": "medium",
     "escalated": true,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 10,
     "message": "I am escalating this to a specialist team so they can handle this case accurately and quickly.",
-    "errors": []
+    "errors": [
+      "CHECK_REFUND_ELIGIBILITY attempt 1 failed: CHECK_REFUND_ELIGIBILITY timed out"
+    ]
   },
   {
     "ticket_id": "TKT-016",
@@ -187,7 +210,8 @@
     "confidence": 0.8,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 6,
     "message": "I can help with this. Please share your order ID and a few more details so I can proceed.",
     "errors": []
   },
@@ -199,7 +223,8 @@
     "confidence": 0.78,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "I can help with this. Please share your order ID and a few more details so I can proceed.",
     "errors": []
   },
@@ -211,9 +236,12 @@
     "confidence": 0.82,
     "priority": "urgent",
     "escalated": true,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 10,
     "message": "I reviewed your request and this order is outside the return policy, so I cannot approve a refund right now.",
-    "errors": []
+    "errors": [
+      "CHECK_REFUND_ELIGIBILITY attempt 1 failed: CHECK_REFUND_ELIGIBILITY missing fields: eligible"
+    ]
   },
   {
     "ticket_id": "TKT-019",
@@ -223,7 +251,8 @@
     "confidence": 0.9,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 8,
     "message": "I checked the order status and shared the latest update below.",
     "errors": []
   },
@@ -235,8 +264,11 @@
     "confidence": 0.82,
     "priority": "medium",
     "escalated": false,
-    "tool_call_count": 7,
+    "dead_lettered": false,
+    "tool_call_count": 9,
     "message": "I reviewed your request and this order is outside the return policy, so I cannot approve a refund right now.",
-    "errors": []
+    "errors": [
+      "CHECK_REFUND_ELIGIBILITY attempt 1 failed: CHECK_REFUND_ELIGIBILITY missing fields: eligible"
+    ]
   }
 ]

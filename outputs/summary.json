@@ -2,6 +2,7 @@
   "total_tickets": 20,
   "resolved": 13,
   "escalated": 7,
+  "dead_lettered": 0,
   "avg_confidence": 0.86,
-  "min_tool_calls": 7
+  "min_tool_calls": 6
 }

@@ -6,14 +6,19 @@ This project processes support tickets from JSON data using a LangGraph workflow
 
 - Typed state graph per ticket with clear, inspectable node transitions.
 - Minimum 3+ tool calls per ticket enforced by graph design.
+- Required read/write mock tools implemented (`get_*`, `search_knowledge_base`, `issue_refund`, `send_reply`, `escalate`).
+- Autonomous action execution on resolved paths (not classification-only).
 - Confidence score in every decision and every audit entry.
 - Conditional routing to human escalation when confidence is low or policy risk is high.
+- Deterministic tool failure simulation (timeouts, malformed, partial responses).
+- Retry budgets with exponential backoff and schema validation before action.
+- Dead-letter queue artifact for irrecoverable action failures.
 - Concurrent ticket handling with a semaphore cap.
 - Output artifacts for judging and review.
 
 ## Graph Flow
 
-`PARSE_TICKET -> LOOKUP_USER -> LOOKUP_ORDER -> LOOKUP_PRODUCT -> SEARCH_KNOWLEDGE -> CHECK_REFUND_ELIGIBILITY -> DECIDE -> (RESOLVE | ESCALATE) -> FINALIZE`
+`PARSE_TICKET -> GET_CUSTOMER -> GET_ORDER -> GET_PRODUCT -> SEARCH_KNOWLEDGE_BASE -> CHECK_REFUND_ELIGIBILITY -> DECIDE -> (RESOLVE_ACTIONS | ESCALATE_ACTIONS) -> FINALIZE`
 
 Escalation route is triggered when:
 
@@ -27,6 +32,7 @@ After a run, these files are written to `outputs/`:
 - `resolutions.json`: Final response per ticket.
 - `audit_log.json`: Full per-ticket tool call history and decision traces.
 - `escalations.json`: Escalated ticket summaries.
+- `dead_letter_queue.json`: Tickets requiring operator intervention after retry exhaustion.
 - `summary.json`: Run-level metrics (counts, average confidence, minimum tool calls).
 
 ## Setup
@@ -63,6 +69,13 @@ Optional flags:
 python main.py --max-concurrency 10 --confidence-threshold 0.65 --model gemini-1.5-flash
 ```
 
+Optional resiliency knob:
+
+```powershell
+$env:TOOL_RETRY_BUDGET=2
+python main.py
+```
+
 ## Project Structure
 
 - `main.py`: Runner, concurrency, artifact writing.
@@ -72,6 +85,11 @@ python main.py --max-concurrency 10 --confidence-threshold 0.65 --model gemini-1
 - `support_agent/graph.py`: LangGraph state machine definition.
 - `support_agent/audit.py`: Structured audit logging utilities.
 - `support_agent/models.py`: Shared typed models/state.
+
+## Additional Deliverables
+
+- Architecture Diagram: `ARCHITECTURE.md`
+- Failure Mode Analysis: `FAILURE_MODE_ANALYSIS.md`
 
 ## Git Quick Start
 

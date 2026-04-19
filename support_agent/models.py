@@ -62,3 +62,8 @@ class TicketState(TypedDict, total=False):
     tool_call_count: int
     audit: list[ToolCallRecord]
     errors: list[str]
+    dead_lettered: bool
+    retry_counters: dict[str, int]
+    reply_outbox: list[dict[str, Any]]
+    escalation_queue: list[dict[str, Any]]
+    last_refund: dict[str, Any]
