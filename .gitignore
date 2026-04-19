@@ -12,3 +12,6 @@ venv/
 
 # IDE
 .vscode/.ropeproject
+
+# API runtime artifacts
+outputs/jobs/

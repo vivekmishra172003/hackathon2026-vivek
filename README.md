@@ -76,8 +76,54 @@ $env:TOOL_RETRY_BUDGET=2
 python main.py
 ```
 
+## Run Production API Backend (Port 8011)
+
+This repo now includes a production-oriented FastAPI service that wraps the ticket pipeline and exposes job APIs used by the frontend.
+
+Start the backend:
+
+```powershell
+python api_server.py
+```
+
+Or with uvicorn explicitly:
+
+```powershell
+uvicorn api_server:app --host 0.0.0.0 --port 8011
+```
+
+Health check:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8011/api/v1/health
+```
+
+### API Endpoints
+
+- `GET /api/v1/health`
+- `POST /api/v1/jobs`
+- `GET /api/v1/jobs`
+- `GET /api/v1/jobs/{job_id}`
+- `GET /api/v1/jobs/{job_id}/artifacts/{artifact_name}`
+
+Supported artifact names:
+
+- `summary`
+- `resolutions`
+- `escalations`
+- `dead_letter_queue`
+- `audit_log`
+
+### Production Notes
+
+- Default API port is `8011` via `API_PORT`.
+- Set `BACKEND_API_KEY` to enforce `x-api-key` auth on job endpoints.
+- Tighten `ALLOWED_HOSTS` and `CORS_ORIGINS` in production.
+- Job state is in-memory for this hackathon implementation; use one API process instance unless you add shared persistence.
+
 ## Project Structure
 
+- `api_server.py`: FastAPI production backend with job APIs and health endpoint.
 - `main.py`: Runner, concurrency, artifact writing.
 - `support_agent/data_store.py`: JSON data loading and indexing.
 - `support_agent/tools.py`: Deterministic tool layer.

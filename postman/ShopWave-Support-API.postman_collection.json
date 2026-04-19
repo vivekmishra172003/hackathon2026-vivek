@@ -1,0 +1,192 @@
+{
+  "info": {
+    "_postman_id": "f2b8f1b6-1f8a-4f83-b2c9-4b50b8334c2e",
+    "name": "ShopWave Support Backend API",
+    "description": "Collection for testing the FastAPI backend on port 8011.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create Job",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "description": "Required only when BACKEND_API_KEY is configured"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"max_concurrency\": 10,\n  \"confidence_threshold\": 0.65,\n  \"write_latest_outputs\": true\n}"
+        },
+        "url": "{{baseUrl}}/api/v1/jobs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "var data = pm.response.json();",
+              "if (data.job_id) {",
+              "  pm.collectionVariables.set('jobId', data.job_id);",
+              "  pm.environment.set('jobId', data.job_id);",
+              "}",
+              "pm.test('job_id is present', function () {",
+              "  pm.expect(data.job_id).to.be.a('string').and.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List Jobs",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "description": "Required only when BACKEND_API_KEY is configured"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/jobs"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "var data = pm.response.json();",
+              "pm.test('Response is an array', function () {",
+              "  pm.expect(Array.isArray(data)).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Job Detail",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "description": "Required only when BACKEND_API_KEY is configured"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/jobs/{{jobId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "var data = pm.response.json();",
+              "if (data.status) {",
+              "  pm.collectionVariables.set('jobStatus', data.status);",
+              "  pm.environment.set('jobStatus', data.status);",
+              "}",
+              "console.log('Job status:', data.status);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get Artifact",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "description": "Required only when BACKEND_API_KEY is configured"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/jobs/{{jobId}}/artifacts/{{artifactName}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200 or 404 (artifact may not be ready yet)', function () {",
+              "  pm.expect([200, 404]).to.include(pm.response.code);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  console.log('Artifact received:', pm.environment.get('artifactName') || pm.collectionVariables.get('artifactName'));",
+              "} else {",
+              "  console.log('Artifact not ready yet. Poll Get Job Detail until status=completed, then retry.');",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8011"
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "artifactName",
+      "value": "summary"
+    },
+    {
+      "key": "jobStatus",
+      "value": ""
+    }
+  ]
+}
